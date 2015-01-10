@@ -1,0 +1,17 @@
+{
+  "name": "clientCode",
+  "version": "0.0.0",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "highcharts-ng": "~0.0.7",
+    "highcharts-release": "~4.0.4",
+    "jquery": "~2.1.3"
+  }
+}

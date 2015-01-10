@@ -1,0 +1,16 @@
+<article class="container" ng-controller="setServerCtrl">
+    <div class="alert alert-warning" ng-show="error">{{error}}</div>
+    <form>
+        <div class="form-group">
+            <label for="serverUrl">Server address: </label>
+            <input id="serverUrl" class="form-control" ng-model="url"
+                   placeholder="Enter Server IP Address here" type="text"/>
+        </div>
+        <div class="form-group">
+            <label for="couchInstance">CouchDB Instance: </label>
+            <input id="couchInstance" class="form-control" ng-model="couchDBInstance"
+                   placeholder="couchDB Name" type="text"/>
+            <button class="btn btn-lg btn-primary" type="button" ng-click="getData()">Get Data</button>
+        </div>
+    </form>
+</article>

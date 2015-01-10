@@ -1,0 +1,29 @@
+<article id="dataView" class="container" ng-controller="dataViewCtrl">
+    <section class="chart-container">
+        <highchart id="chart1" config="highChartConfig" class="span10"></highchart>
+    </section>
+    <form>
+        <div class="radio">
+            <label for="allDates">
+                <input id="allDates" name="filterDates" type="radio"
+                       ng-model="filterValue" value="all"/><em>All Data</em>
+            </label>
+        </div>
+        <div class="radio">
+            <label for="fromDate">
+                <input id="fromDate" name="filterDates" type="radio"
+                       ng-model="filterValue" value="from"/><em>From:  </em>
+            </label>
+            <input id="fromDateTime" type="datetime-local" ng-model="fromOnly" ng-disabled="filterValue !== 'from'"/>
+        </div>
+        <div class="radio">
+            <label for="fromToRadio">
+                <input id="fromToRadio" name="filterDates" type="radio"
+                       ng-model="filterValue" value="fromTo"/><em>From: and To:  </em>
+            </label>
+            <input id="fromToInitialDate" type="datetime-local" ng-model="fromToInitalDate" ng-disabled="filterValue !=='fromTo'"/>
+            <input id="fromToEndDate" type="datetime-local" ng-model="fromToEndDate" ng-disabled="filterValue !== 'fromTo'"/>
+        </div>
+        <button class="btn btn-primary" ng-click="filterHighChartData()">Filter By Date</button>
+    </form>
+</article>

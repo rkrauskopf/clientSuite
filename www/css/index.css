@@ -1,0 +1,8 @@
+.bg-danger {
+    padding: 1em;
+}
+
+#dataView em {
+    font-weight: bold;
+    font-style: normal;
+}

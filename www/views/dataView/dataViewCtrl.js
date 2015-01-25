@@ -17,6 +17,16 @@
         $scope.fromToInitalDate = "";
         $scope.fromToEndDate = "";
 
+
+        //var fs = require('fs');
+        //$scope.testSave = function testSavefn() {
+        //    fs.writeFile('/Users/randall/testFile.json', '{"key": "value"}', function(err){
+        //        if(err) throw err;
+        //
+        //        console.log('File saved!');
+        //    });
+        //};
+
         $http.get(couchInstanceURL + viewRoute)
             .success(function(data, status){
                 console.log('successful retrieval of data');
@@ -187,10 +197,23 @@
                                             var lastIndex = allInputsObj['input 1'].length;
                                             var latestDate = new Date(allInputsObj['input 1'][lastIndex-1][0]);
 
-
                                             var extractedLatestDate = new Date(extractedData[0]['dateTime']);
 
-                                            if(Number(latestDate) === Number(extractedLatestDate)) {
+                                            /*
+                                             * For some reason that I haven't figured out yet the date that is retrieved that is a duplicate from the CouchDB server
+                                             * is off by a half second from the one that is still stored on the browser client, this makes it hard to compare by converting the
+                                             * date object to a straight ISO 8601 format or get using the getTime() function. It's a bit hackey if you compare the times by
+                                             * their getUTC components and skip the millsecond compare then in the meantime it should be an accurate comparison.
+                                             */
+
+                                            var isYear = latestDate.getUTCFullYear() === extractedLatestDate.getUTCFullYear();
+                                            var isMonth = latestDate.getUTCMonth() === extractedLatestDate.getUTCMonth();
+                                            var isDay = latestDate.getUTCDay() === extractedLatestDate.getUTCDay();
+                                            var isHour = latestDate.getUTCHours() === extractedLatestDate.getUTCHours();
+                                            var isMinute = latestDate.getUTCMinutes() === extractedLatestDate.getUTCMinutes();
+                                            var isSeconds = latestDate.getUTCSeconds() === extractedLatestDate.getUTCSeconds();
+
+                                            if(isYear && isMonth && isDay && isHour && isMinute && isSeconds) {
                                                 //remove the first element to prevent duplicate data when necessary
                                                 extractedData.splice(0, 1);
                                             }
@@ -238,6 +261,11 @@
                                                         //Need to push into the master array and then dynamically add it to the chart
                                                         allInputsObj[keyName].push(tempArray);
 
+
+                                                        /*TODO: check for date filters adding them to the current chart. Make sure that they are within the current
+                                                        *       filter settings.
+                                                        * */
+
                                                         //find the correct series by matching the input name to the series name
                                                         chartSeries.forEach(function(series) {
                                                             if(series.name === keyName) {
@@ -251,10 +279,6 @@
                                         .error(function(data, status) {
 
                                         });
-
-                                    //var x = (new Date()).getTime(), // current time
-                                    //    y = Math.random();
-                                    //self.series[0].addPoint([x, y], true, true);
                                 }, 15000);
                             }
                         }

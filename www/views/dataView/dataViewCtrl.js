@@ -7,7 +7,7 @@
         var couchInstanceURL = localStorage['cachedUrl'] + '/' + localStorage['couchDBInstance'];
 
         //This is a pre-defined view on the couchdb instance that returns the requested variables
-        var viewRoute = '/_design/all_readings/_view/Readings';
+        var viewRoute = '/_design/Readings/_view/all_readings';
 
         var allInputsObj = {};
 
@@ -16,16 +16,6 @@
         $scope.fromOnly = "";
         $scope.fromToInitalDate = "";
         $scope.fromToEndDate = "";
-
-
-        //var fs = require('fs');
-        //$scope.testSave = function testSavefn() {
-        //    fs.writeFile('/Users/randall/testFile.json', '{"key": "value"}', function(err){
-        //        if(err) throw err;
-        //
-        //        console.log('File saved!');
-        //    });
-        //};
 
         $http.get(couchInstanceURL + viewRoute)
             .success(function(data, status){
@@ -49,10 +39,13 @@
                 var keyList = [];
 
                 //loop through each data row and grab all the unique keys that are available
-                //except the dateTime variable
+                //except the dateTime variable. Currently the graph view does not have any idea of what
+                //the inputs look like so we have to programmatically detect them.
                 for(var i = 0; i <extractedData.length; i++) {
                     var tempKeyList = keyList;
 
+                    //At the first index you need to compare the first entry to itself otherwise the union
+                    //will return an empty result.
                     if(i === 0) {
                         keyList = _.union(Object.keys(extractedData[i]), Object.keys(extractedData[i]));
                     }
@@ -64,7 +57,6 @@
 
                 //Remove the dateTime key from the keyList, that is x-axis data which
                 //does not need its own series input
-
                 for(var i = 0; i < keyList.length; i++) {
                     if(keyList[i] === 'dateTime') {
                         keyList.splice(i,i);
@@ -84,8 +76,9 @@
                         var keyName = keyList[j];
 
                         if(extractedData[i][keyName] !== undefined) {
-                            var date = new Date(extractedData[i].dateTime).toLocaleString();
-                            var tempArray = [date, Number(extractedData[i][keyName])];
+                            var date = new Date(extractedData[i].dateTime);
+                            var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+                            var tempArray = [utcDate, Number(extractedData[i][keyName])];
                             allInputsObj[keyName].push(tempArray);
                         }
                     }
@@ -147,15 +140,26 @@
 
         function setHighChartsData(inputsObj) {
 
+            Highcharts.setOptions({
+                global: {
+                    useUTC: false
+                }
+            });
+
             var setSeriesConfig =[];
 
             var inputsKeyList = Object.keys(inputsObj);
 
             for(var i = 0; i<inputsKeyList.length; i++) {
                 var keyText = inputsKeyList[i];
+
+                //var startDate = inputsObj[keyText][0][0];
+
                 setSeriesConfig.push({
                     name: keyText,
                     data: inputsObj[keyText]
+                    //startPoint: startDate,
+                    //pointInterval: 1000 * 60 //minute intervals
                 });
             }
 
@@ -169,6 +173,7 @@
                                 setInterval(function () {
 
                                     //get the most recent date to pass as a filter to the couch db instance
+                                    //TODO: Make this a generic thing rather than specifying input 1
                                     var lastIndex = allInputsObj['input 1'].length;
 
                                     var latestDate = new Date(allInputsObj['input 1'][lastIndex-1][0]).toISOString();
@@ -255,8 +260,10 @@
                                                     var keyName = keyList[j];
 
                                                     if(extractedData[i][keyName] !== undefined) {
-                                                        var date = new Date(extractedData[i].dateTime).toLocaleString();
-                                                        var tempArray = [date, Number(extractedData[i][keyName])];
+
+                                                        var date = new Date(extractedData[i].dateTime);
+                                                        var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+                                                        var tempArray = [utcDate, Number(extractedData[i][keyName])];
 
                                                         //Need to push into the master array and then dynamically add it to the chart
                                                         allInputsObj[keyName].push(tempArray);
@@ -286,7 +293,17 @@
                 },
                 xAxis: {
                     type: 'datetime',
-                    //labels: { step: '5'},
+                    dateTimeLabelFormats: {
+                        day: '%b %e. %H:%M:'
+                        //millisecond: '%H:%M:%S.%L',
+                        //second: '%H:%M:%S',
+                        //minute: '%H:%M',
+                        //hour: '%H:%M',
+                        //day: '%e. %b',
+                        //week: '%e. %b',
+                        //month: '%b \'%y',
+                        //year: '%Y'
+                    },
                     title: {
                         text: 'DateTime'
                     }
@@ -299,6 +316,5 @@
                 loading: false
             }
         };
-
     });
 })();

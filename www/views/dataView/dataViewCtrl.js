@@ -153,13 +153,9 @@
             for(var i = 0; i<inputsKeyList.length; i++) {
                 var keyText = inputsKeyList[i];
 
-                //var startDate = inputsObj[keyText][0][0];
-
                 setSeriesConfig.push({
                     name: keyText,
                     data: inputsObj[keyText]
-                    //startPoint: startDate,
-                    //pointInterval: 1000 * 60 //minute intervals
                 });
             }
 
@@ -295,14 +291,6 @@
                     type: 'datetime',
                     dateTimeLabelFormats: {
                         day: '%b %e. %H:%M:'
-                        //millisecond: '%H:%M:%S.%L',
-                        //second: '%H:%M:%S',
-                        //minute: '%H:%M',
-                        //hour: '%H:%M',
-                        //day: '%e. %b',
-                        //week: '%e. %b',
-                        //month: '%b \'%y',
-                        //year: '%Y'
                     },
                     title: {
                         text: 'DateTime'
@@ -312,7 +300,6 @@
                 title: {
                     text: 'Hello'
                 },
-                //xAxis: {currentMin: 0, currentMax: 10, minRange: 1},
                 loading: false
             }
         };

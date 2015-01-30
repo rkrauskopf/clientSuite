@@ -1,2 +1,4 @@
 www/bower_components
 www/node_modules
+.idea
+platforms

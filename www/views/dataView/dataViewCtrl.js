@@ -11,6 +11,8 @@
 
         var allInputsObj = {};
 
+        $scope.isHistoryData = false;
+
         $scope.filterValue = "all";
 
         $scope.fromOnly = "";
@@ -190,10 +192,7 @@
                                                 // to get a value that is either negative, positive, or zero.
                                                 return new Date(a.dateTime) - new Date(b.dateTime);
                                             });
-
-                                            //TODO: THe couchdb db will return a duplicate date, the one that was used to form the query in the first place. Need to remove it so
-                                            //duplicate data doesn't get added to the chart
-
+                                            
                                             //get the most recent date to pass as a filter to the couch db instance
                                             var lastIndex = allInputsObj['input 1'].length;
                                             var latestDate = new Date(allInputsObj['input 1'][lastIndex-1][0]);
@@ -301,6 +300,19 @@
                     text: 'Hello'
                 },
                 loading: false
+            }
+        };
+
+        $scope.loadSavedData = function() {
+
+            var fileInput = document.getElementById('savedFile');
+            var file = fileInput.files[0];
+            var fileReader = new FileReader();
+            fileReader.readAsText(file);
+
+            fileReader.onload = function(e) {
+                var results = fileReader.result;
+                console.log(results);
             }
         };
     });

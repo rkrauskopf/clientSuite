@@ -10,8 +10,10 @@
             <label for="couchInstance">CouchDB Instance: </label>
             <input id="couchInstance" class="form-control" ng-model="couchDBInstance"
                    placeholder="couchDB Name" type="text"/>
+            <label for="bottleInstance">Bottle Port</label>
             <input id="bottleInstance" class="form-control" ng-model="bottlePort" type="text"
                    placeholder="Port Number"/>
+            <button class="btn btn-lg btn-primary" type="button" ng-click="getData()">Get Data</button>
         </div>
     </form>
 </article>

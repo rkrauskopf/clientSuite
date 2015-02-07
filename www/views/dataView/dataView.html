@@ -1,6 +1,6 @@
 <article id="dataView" class="container" ng-controller="dataViewCtrl">
     <section class="chart-container">
-        <highchart id="chart1" config="highChartConfig" class="span10"></highchart>
+        <highchart id="chart1" config="currentChartConfig" class="span10"></highchart>
     </section>
     <form>
         <div class="radio">
@@ -24,7 +24,8 @@
             <input id="fromToInitialDate" type="datetime-local" ng-model="fromToInitalDate" ng-disabled="filterValue !=='fromTo'"/>
             <input id="fromToEndDate" type="datetime-local" ng-model="fromToEndDate" ng-disabled="filterValue !== 'fromTo'"/>
         </div>
-        <button class="btn btn-primary" ng-click="filterHighChartData()">Filter By Date</button>
+        <button class="btn btn-lg btn-primary" ng-click="filterHighChartData()">Filter By Date</button>
+        <button class="btn btn-lg" ng-click="saveData()">Save Chart Data</button>
     </form>
 
     <section class="chart-container" ng-show="isHistoryData">

@@ -3,13 +3,19 @@
 
     var app = angular.module('InstrumentClient');
 
-    app.controller('dataViewCtrl', function($scope, $http) {
+    app.controller('dataViewCtrl', function($scope, $http, $window) {
         var couchInstanceURL = localStorage['cachedUrl'] + '/' + localStorage['couchDBInstance'];
 
         //This is a pre-defined view on the couchdb instance that returns the requested variables
         var viewRoute = '/_design/Readings/_view/all_readings';
 
-        var allInputsObj = {};
+
+        //There are currently two highcharts in this page, one is for current data and the other
+        //is historical data from a previous couchdb instance that can be loaded manually
+        //through a JSON object. So we need two variables to track the raw data that we get
+        //from both of them
+        var currentInputsObj = {};
+        var historicalInputsObj = {};
 
         $scope.isHistoryData = false;
 
@@ -23,70 +29,9 @@
             .success(function(data, status){
                 console.log('successful retrieval of data');
 
-                var extractedData = [];
+                currentInputsObj = formatCouchData(data, true)
 
-                //extract objects
-                for(var i = 0; i<data.rows.length; i++) {
-                    extractedData.push(data.rows[i].value)
-                }
-
-                //sort the extractedData based on the dateTime
-                extractedData.sort(function(a,b){
-                    // Turn your strings into dates, and then subtract them
-                    // to get a value that is either negative, positive, or zero.
-                    return new Date(a.dateTime) - new Date(b.dateTime);
-                });
-
-                //get a list of the input names
-                var keyList = [];
-
-                //loop through each data row and grab all the unique keys that are available
-                //except the dateTime variable. Currently the graph view does not have any idea of what
-                //the inputs look like so we have to programmatically detect them.
-                for(var i = 0; i <extractedData.length; i++) {
-                    var tempKeyList = keyList;
-
-                    //At the first index you need to compare the first entry to itself otherwise the union
-                    //will return an empty result.
-                    if(i === 0) {
-                        keyList = _.union(Object.keys(extractedData[i]), Object.keys(extractedData[i]));
-                    }
-                    else {
-                        keyList = _.union(tempKeyList, Object.keys(extractedData[i]));
-                    }
-
-                }
-
-                //Remove the dateTime key from the keyList, that is x-axis data which
-                //does not need its own series input
-                for(var i = 0; i < keyList.length; i++) {
-                    if(keyList[i] === 'dateTime') {
-                        keyList.splice(i,i);
-                    }
-                }
-
-                //create array entry for each input, then push it into a master array to keep track
-                for(var i = 0; i < keyList.length; i++) {
-                    allInputsObj[keyList[i]] = [];
-                }
-
-                //Loop through and parse data into a dataset that ChartJS can consume.
-                for(var i = 0; i<extractedData.length; i++) {
-
-                    for(var j = 0; j<keyList.length; j++) {
-                        //check to make sure key exists, this isn't a guarantee for each data entry
-                        var keyName = keyList[j];
-
-                        if(extractedData[i][keyName] !== undefined) {
-                            var date = new Date(extractedData[i].dateTime);
-                            var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
-                            var tempArray = [utcDate, Number(extractedData[i][keyName])];
-                            allInputsObj[keyName].push(tempArray);
-                        }
-                    }
-                }
-
-                setHighChartsData(allInputsObj);
+                setHighChartsData(currentInputsObj, true);
 
             })
             .error(function(data, status) {
@@ -94,11 +39,79 @@
             }
         );
 
-        $scope.filterHighChartData = function() {
+        function formatCouchData(couchData) {
+            var extractedData = [];
+            var highChartData = {};
+
+            //extract objects
+            for(var i = 0; i<couchData.rows.length; i++) {
+                extractedData.push(couchData.rows[i].value)
+            }
+
+            //sort the extractedData based on the dateTime
+            extractedData.sort(function(a,b){
+                // Turn your strings into dates, and then subtract them
+                // to get a value that is either negative, positive, or zero.
+                return new Date(a.dateTime) - new Date(b.dateTime);
+            });
+
+            //get a list of the input names
+            var keyList = [];
+
+            //loop through each data row and grab all the unique keys that are available
+            //except the dateTime variable. Currently the graph view does not have any idea of what
+            //the inputs look like so we have to programmatically detect them.
+            for(var i = 0; i <extractedData.length; i++) {
+                var tempKeyList = keyList;
+
+                //At the first index you need to compare the first entry to itself otherwise the union
+                //will return an empty result.
+                if(i === 0) {
+                    keyList = _.union(Object.keys(extractedData[i]), Object.keys(extractedData[i]));
+                }
+                else {
+                    keyList = _.union(tempKeyList, Object.keys(extractedData[i]));
+                }
+
+            }
+
+            //Remove the dateTime key from the keyList, that is x-axis data which
+            //does not need its own series input
+            for(var i = 0; i < keyList.length; i++) {
+                if(keyList[i] === 'dateTime') {
+                    keyList.splice(i,i);
+                }
+            }
+
+            //create array entry for each input, then push it into a master array to keep track
+            for(var i = 0; i < keyList.length; i++) {
+                highChartData[keyList[i]] = [];
+            }
+
+            //Loop through and parse data into a dataset that ChartJS can consume.
+            for(var i = 0; i<extractedData.length; i++) {
+
+                for(var j = 0; j<keyList.length; j++) {
+                    //check to make sure key exists, this isn't a guarantee for each data entry
+                    var keyName = keyList[j];
+
+                    if(extractedData[i][keyName] !== undefined) {
+                        var date = new Date(extractedData[i].dateTime);
+                        var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+                        var tempArray = [utcDate, Number(extractedData[i][keyName])];
+                        highChartData[keyName].push(tempArray);
+                    }
+                }
+            }
+
+            return highChartData;
+        }
+
+        $scope.filterHighChartData = function(inputObj, useCurrent) {
 
             var allFilteredInputsObj = {};
 
-            var keyList = Object.keys(allInputsObj);
+            var keyList = Object.keys(inputObj);
 
             //create array entry for each input, then push it into a master array to keep track
             for(var i = 0; i < keyList.length; i++) {
@@ -108,17 +121,16 @@
             //Return all inputs if the 'all' option is selected
             if($scope.filterValue === 'all') {
 
-                allFilteredInputsObj = allInputsObj;
+                allFilteredInputsObj = inputObj;
             }
-
 
             if($scope.filterValue === 'from') {
                 for(var i = 0; i<keyList.length; i++) {
                     var keyText = keyList[i];
-                    for(var j = 0; j <allInputsObj[keyText].length; j++) {
-                        var dateString = allInputsObj[keyText][j][0];
+                    for(var j = 0; j <inputObj[keyText].length; j++) {
+                        var dateString = inputObj[keyText][j][0];
                         if(new Date(dateString) >= $scope.fromOnly) {
-                            allFilteredInputsObj[keyText].push(allInputsObj[keyText][j]);
+                            allFilteredInputsObj[keyText].push(inputObj[keyText][j]);
                         }
                     }
                 }
@@ -128,19 +140,19 @@
 
                 for(var i = 0; i<keyList.length; i++) {
                     var keyText = keyList[i];
-                    for(var j = 0; j <allInputsObj[keyText].length; j++) {
-                        var dateString = allInputsObj[keyText][j][0];
+                    for(var j = 0; j <inputObj[keyText].length; j++) {
+                        var dateString = inputObj[keyText][j][0];
                         if(new Date(dateString) >= $scope.fromToInitalDate && new Date(dateString) <= $scope.fromToEndDate) {
-                            allFilteredInputsObj[keyText].push(allInputsObj[keyText][j]);
+                            allFilteredInputsObj[keyText].push(inputObj[keyText][j]);
                         }
                     }
                 }
             }
 
-            setHighChartsData(allFilteredInputsObj);
+            setHighChartsData(allFilteredInputsObj, useCurrent);
         };
 
-        function setHighChartsData(inputsObj) {
+        function setHighChartsData(inputsObj, useCurrent) {
 
             Highcharts.setOptions({
                 global: {
@@ -161,7 +173,15 @@
                 });
             }
 
-            $scope.highChartConfig = {
+            var chartConfigName = '';
+            if(useCurrent) {
+                chartConfigName = 'currentChartConfig';
+            }
+            else {
+                chartConfigName = 'historyChartConfig';
+            }
+
+            $scope[chartConfigName] = {
                 options: {
                     chart: {
                         type: 'spline',
@@ -172,9 +192,9 @@
 
                                     //get the most recent date to pass as a filter to the couch db instance
                                     //TODO: Make this a generic thing rather than specifying input 1
-                                    var lastIndex = allInputsObj['input 1'].length;
+                                    var lastIndex = currentInputsObj['input 1'].length;
 
-                                    var latestDate = new Date(allInputsObj['input 1'][lastIndex-1][0]).toISOString();
+                                    var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]).toISOString();
 
                                     //get Latest data
                                     $http.get(couchInstanceURL + viewRoute + '?startkey="' + latestDate + "\"")
@@ -194,8 +214,8 @@
                                             });
                                             
                                             //get the most recent date to pass as a filter to the couch db instance
-                                            var lastIndex = allInputsObj['input 1'].length;
-                                            var latestDate = new Date(allInputsObj['input 1'][lastIndex-1][0]);
+                                            var lastIndex = currentInputsObj['input 1'].length;
+                                            var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]);
 
                                             var extractedLatestDate = new Date(extractedData[0]['dateTime']);
 
@@ -261,7 +281,7 @@
                                                         var tempArray = [utcDate, Number(extractedData[i][keyName])];
 
                                                         //Need to push into the master array and then dynamically add it to the chart
-                                                        allInputsObj[keyName].push(tempArray);
+                                                        currentInputsObj[keyName].push(tempArray);
 
 
                                                         /*TODO: check for date filters adding them to the current chart. Make sure that they are within the current
@@ -301,6 +321,23 @@
                 },
                 loading: false
             }
+
+        };
+
+        $scope.saveData = function() {
+
+            //create request string
+            var url = 'http://localhost:8080/saveData';
+
+            if($scope.filterValue === 'from') {
+                url += '?startkey="'+ $scope.fromOnly + '"';
+            }
+
+            if($scope.filterValue === 'fromTo') {
+                url += '?startkey="'+ $scope.fromToInitalDate + '"' + '&endkey="' + $scope.fromToEndDate + '"';
+            }
+
+            $window.location = url;
         };
 
         $scope.loadSavedData = function() {
@@ -312,8 +349,18 @@
 
             fileReader.onload = function(e) {
                 var results = fileReader.result;
-                console.log(results);
+
+                //Turn string into JSON object
+                var jsonResults = JSON.parse(results);
+
+                historicalInputsObj = formatCouchData(jsonResults);
+                setHighChartsData(historicalInputsObj, false);
+
+                $scope.isHistoryData = true;
+                //need to call digest since this isn't currently in an angular wrapper
+                $scope.$apply();
             }
         };
+
     });
 })();

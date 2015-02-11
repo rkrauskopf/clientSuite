@@ -24,6 +24,127 @@
         $scope.fromOnly = "";
         $scope.fromToInitalDate = "";
         $scope.fromToEndDate = "";
+        $scope.refreshInterval = 15; //default should be 15 seconds
+        $scope.currentInterval = null;
+
+        $scope.setRefreshInterval = function() {
+
+                clearInterval($scope.currentInterval);
+                $scope.currentInterval = setInterval(function () {
+
+                    //get the most recent date to pass as a filter to the couch db instance
+                    //TODO: Make this a generic thing rather than specifying input 1
+                    var lastIndex = currentInputsObj['input 1'].length;
+
+                    var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]).toISOString();
+
+                    //get Latest data
+                    $http.get(couchInstanceURL + viewRoute + '?startkey="' + latestDate + "\"")
+                        .success(function(data, status){
+                            var extractedData = [];
+
+                            //extract objects
+                            for(var i = 0; i<data.rows.length; i++) {
+                                extractedData.push(data.rows[i].value)
+                            }
+
+                            //sort the extractedData based on the dateTime
+                            extractedData.sort(function(a,b){
+                                // Turn your strings into dates, and then subtract them
+                                // to get a value that is either negative, positive, or zero.
+                                return new Date(a.dateTime) - new Date(b.dateTime);
+                            });
+
+                            //get the most recent date to pass as a filter to the couch db instance
+                            var lastIndex = currentInputsObj['input 1'].length;
+                            var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]);
+
+                            var extractedLatestDate = new Date(extractedData[0]['dateTime']);
+
+                            /*
+                             * For some reason that I haven't figured out yet the date that is retrieved that is a duplicate from the CouchDB server
+                             * is off by a half second from the one that is still stored on the browser client, this makes it hard to compare by converting the
+                             * date object to a straight ISO 8601 format or get using the getTime() function. It's a bit hackey if you compare the times by
+                             * their getUTC components and skip the millsecond compare then in the meantime it should be an accurate comparison.
+                             */
+
+                            var isYear = latestDate.getUTCFullYear() === extractedLatestDate.getUTCFullYear();
+                            var isMonth = latestDate.getUTCMonth() === extractedLatestDate.getUTCMonth();
+                            var isDay = latestDate.getUTCDay() === extractedLatestDate.getUTCDay();
+                            var isHour = latestDate.getUTCHours() === extractedLatestDate.getUTCHours();
+                            var isMinute = latestDate.getUTCMinutes() === extractedLatestDate.getUTCMinutes();
+                            var isSeconds = latestDate.getUTCSeconds() === extractedLatestDate.getUTCSeconds();
+
+                            if(isYear && isMonth && isDay && isHour && isMinute && isSeconds) {
+                                //remove the first element to prevent duplicate data when necessary
+                                extractedData.splice(0, 1);
+                            }
+
+                            //get a list of the input names
+                            var keyList = [];
+
+                            //loop through each data row and grab all the unique keys that are available
+                            //except the dateTime variable
+                            for(var i = 0; i <extractedData.length; i++) {
+                                var tempKeyList = keyList;
+
+                                if(i === 0) {
+                                    keyList = _.union(Object.keys(extractedData[i]), Object.keys(extractedData[i]));
+                                }
+                                else {
+                                    keyList = _.union(tempKeyList, Object.keys(extractedData[i]));
+                                }
+
+                            }
+
+                            //Remove the dateTime key from the keyList, that is x-axis data which
+                            //does not need its own series input
+
+                            for(var i = 0; i < keyList.length; i++) {
+                                if(keyList[i] === 'dateTime') {
+                                    keyList.splice(i,i);
+                                }
+                            }
+
+                            //get the highchart series data
+                            var chartSeries = $('#chart1').highcharts().series;
+
+                            //Loop through and parse data into a dataset that ChartJS can consume.
+                            for(var i = 0; i<extractedData.length; i++) {
+
+                                for(var j = 0; j<keyList.length; j++) {
+                                    //check to make sure key exists, this isn't a guarantee for each data entry
+                                    var keyName = keyList[j];
+
+                                    if(extractedData[i][keyName] !== undefined) {
+
+                                        var date = new Date(extractedData[i].dateTime);
+                                        var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+                                        var tempArray = [utcDate, Number(extractedData[i][keyName])];
+
+                                        //Need to push into the master array and then dynamically add it to the chart
+                                        currentInputsObj[keyName].push(tempArray);
+
+
+                                        /*TODO: check for date filters adding them to the current chart. Make sure that they are within the current
+                                         *       filter settings.
+                                         * */
+
+                                        //find the correct series by matching the input name to the series name
+                                        chartSeries.forEach(function(series) {
+                                            if(series.name === keyName) {
+                                                series.addPoint(tempArray);
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        })
+                        .error(function(data, status) {
+
+                        });
+                }, $scope.refreshInterval * 1000);
+        }
 
         $http.get(couchInstanceURL + viewRoute)
             .success(function(data, status){
@@ -111,6 +232,10 @@
 
             var allFilteredInputsObj = {};
 
+            if(!inputObj) {
+                inputObj = currentInputsObj;
+                useCurrent = true;
+            }
             var keyList = Object.keys(inputObj);
 
             //create array entry for each input, then push it into a master array to keep track
@@ -185,125 +310,7 @@
                 options: {
                     chart: {
                         type: 'spline',
-                        zoomType: 'x',
-                        events: {
-                            load: function() {
-                                setInterval(function () {
-
-                                    //get the most recent date to pass as a filter to the couch db instance
-                                    //TODO: Make this a generic thing rather than specifying input 1
-                                    var lastIndex = currentInputsObj['input 1'].length;
-
-                                    var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]).toISOString();
-
-                                    //get Latest data
-                                    $http.get(couchInstanceURL + viewRoute + '?startkey="' + latestDate + "\"")
-                                        .success(function(data, status){
-                                            var extractedData = [];
-
-                                            //extract objects
-                                            for(var i = 0; i<data.rows.length; i++) {
-                                                extractedData.push(data.rows[i].value)
-                                            }
-
-                                            //sort the extractedData based on the dateTime
-                                            extractedData.sort(function(a,b){
-                                                // Turn your strings into dates, and then subtract them
-                                                // to get a value that is either negative, positive, or zero.
-                                                return new Date(a.dateTime) - new Date(b.dateTime);
-                                            });
-                                            
-                                            //get the most recent date to pass as a filter to the couch db instance
-                                            var lastIndex = currentInputsObj['input 1'].length;
-                                            var latestDate = new Date(currentInputsObj['input 1'][lastIndex-1][0]);
-
-                                            var extractedLatestDate = new Date(extractedData[0]['dateTime']);
-
-                                            /*
-                                             * For some reason that I haven't figured out yet the date that is retrieved that is a duplicate from the CouchDB server
-                                             * is off by a half second from the one that is still stored on the browser client, this makes it hard to compare by converting the
-                                             * date object to a straight ISO 8601 format or get using the getTime() function. It's a bit hackey if you compare the times by
-                                             * their getUTC components and skip the millsecond compare then in the meantime it should be an accurate comparison.
-                                             */
-
-                                            var isYear = latestDate.getUTCFullYear() === extractedLatestDate.getUTCFullYear();
-                                            var isMonth = latestDate.getUTCMonth() === extractedLatestDate.getUTCMonth();
-                                            var isDay = latestDate.getUTCDay() === extractedLatestDate.getUTCDay();
-                                            var isHour = latestDate.getUTCHours() === extractedLatestDate.getUTCHours();
-                                            var isMinute = latestDate.getUTCMinutes() === extractedLatestDate.getUTCMinutes();
-                                            var isSeconds = latestDate.getUTCSeconds() === extractedLatestDate.getUTCSeconds();
-
-                                            if(isYear && isMonth && isDay && isHour && isMinute && isSeconds) {
-                                                //remove the first element to prevent duplicate data when necessary
-                                                extractedData.splice(0, 1);
-                                            }
-
-                                            //get a list of the input names
-                                            var keyList = [];
-
-                                            //loop through each data row and grab all the unique keys that are available
-                                            //except the dateTime variable
-                                            for(var i = 0; i <extractedData.length; i++) {
-                                                var tempKeyList = keyList;
-
-                                                if(i === 0) {
-                                                    keyList = _.union(Object.keys(extractedData[i]), Object.keys(extractedData[i]));
-                                                }
-                                                else {
-                                                    keyList = _.union(tempKeyList, Object.keys(extractedData[i]));
-                                                }
-
-                                            }
-
-                                            //Remove the dateTime key from the keyList, that is x-axis data which
-                                            //does not need its own series input
-
-                                            for(var i = 0; i < keyList.length; i++) {
-                                                if(keyList[i] === 'dateTime') {
-                                                    keyList.splice(i,i);
-                                                }
-                                            }
-
-                                            //get the highchart series data
-                                            var chartSeries = $('#chart1').highcharts().series;
-
-                                            //Loop through and parse data into a dataset that ChartJS can consume.
-                                            for(var i = 0; i<extractedData.length; i++) {
-
-                                                for(var j = 0; j<keyList.length; j++) {
-                                                    //check to make sure key exists, this isn't a guarantee for each data entry
-                                                    var keyName = keyList[j];
-
-                                                    if(extractedData[i][keyName] !== undefined) {
-
-                                                        var date = new Date(extractedData[i].dateTime);
-                                                        var utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
-                                                        var tempArray = [utcDate, Number(extractedData[i][keyName])];
-
-                                                        //Need to push into the master array and then dynamically add it to the chart
-                                                        currentInputsObj[keyName].push(tempArray);
-
-
-                                                        /*TODO: check for date filters adding them to the current chart. Make sure that they are within the current
-                                                        *       filter settings.
-                                                        * */
-
-                                                        //find the correct series by matching the input name to the series name
-                                                        chartSeries.forEach(function(series) {
-                                                            if(series.name === keyName) {
-                                                                series.addPoint(tempArray);
-                                                            }
-                                                        });
-                                                    }
-                                                }
-                                            }
-                                        })
-                                        .error(function(data, status) {
-
-                                        });
-                                }, 15000);
-                            }
-                        }
+                        zoomType: 'x'
                     }
                 },
                 xAxis: {
@@ -330,11 +337,11 @@
             var url = 'http://localhost:8080/saveData';
 
             if($scope.filterValue === 'from') {
-                url += '?startkey="'+ $scope.fromOnly + '"';
+                url += '?startkey="'+ $scope.fromOnly.toISOString() + '"';
             }
 
             if($scope.filterValue === 'fromTo') {
-                url += '?startkey="'+ $scope.fromToInitalDate + '"' + '&endkey="' + $scope.fromToEndDate + '"';
+                url += '?startkey="'+ $scope.fromToInitalDate.toISOString() + '"' + '&endkey="' + $scope.fromToEndDate + '"';
             }
 
             $window.location = url;

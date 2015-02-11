@@ -3,6 +3,8 @@
         <highchart id="chart1" config="currentChartConfig" class="span10"></highchart>
     </section>
     <form>
+        <input type="number" ng-model="refreshInterval"/>
+        <button type="button" ng-click="setRefreshInterval()">Set Refresh Interval</button>
         <div class="radio">
             <label for="allDates">
                 <input id="allDates" name="filterDates" type="radio"

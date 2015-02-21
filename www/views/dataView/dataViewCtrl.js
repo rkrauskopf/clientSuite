@@ -200,7 +200,7 @@
             //does not need its own series input
             for(var i = 0; i < keyList.length; i++) {
                 if(keyList[i] === 'dateTime') {
-                    keyList.splice(i,i);
+                    keyList.splice(i,1);
                 }
             }
 
